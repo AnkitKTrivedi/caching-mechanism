@@ -3,7 +3,7 @@ import { LRUTTLCache } from "../cache/LRUTTLCache";
 import { MemoryCache } from "../cache/memoryCache";
 import { RedisCache } from "../cache/RedisCache";
 import { TTLCache } from "../cache/TTLCache";
-import { getUserFromDB } from "../db/fakeDB";
+import { getUserFromDB, updateUser } from "../db/fakeDB";
 import { User } from "../interfaces/user.interface";
 
 /** map caching from the local map */
@@ -122,9 +122,21 @@ export const findUser = async (id: number): Promise<User | undefined> => {
 
   console.log("fetching from DB.....");
   const user = await getUserFromDB(id);
+  /** cache aside */
   if (user) {
     cache.set(key, user);
   }
 
   return user;
+};
+
+export const updateUserData = async (
+  id: number,
+  user: User,
+): Promise<User | undefined> => {
+  const userData = await updateUser(id, user);
+  const key = id.toString();
+  cache.delete(key);
+
+  return userData;
 };
