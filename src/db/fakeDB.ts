@@ -8,8 +8,7 @@ let users: User[] = [
 
 export const getUserFromDB = async (id: number): Promise<User | undefined> => {
   console.log("fetching user data from db....", id);
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  return users.find((user) => (user.id = id));
+  return users.find((user) => user.id === id);
 };
 
 export const updateUser = async (
