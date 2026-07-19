@@ -1,8 +1,10 @@
+import { CacheManager } from "../cache/CacheManager";
 import { LRUCache } from "../cache/LRUCache";
 import { LRUTTLCache } from "../cache/LRUTTLCache";
 import { MemoryCache } from "../cache/memoryCache";
 import { RedisCache } from "../cache/RedisCache";
 import { TTLCache } from "../cache/TTLCache";
+import { SingleFlight } from "../concurrency/SinlgeFlight";
 import { redisClient } from "../config/redis";
 import { getUserFromDB, updateUser } from "../db/fakeDB";
 import { User } from "../interfaces/user.interface";
@@ -114,6 +116,8 @@ import { sleep } from "../utils/sleep";
 
 const cache = new RedisCache<User>();
 const redisLock = new RedisLock(redisClient);
+const singleFlight = new SingleFlight<User | undefined>();
+const cacheManager = new CacheManager(cache);
 
 export const findUser = async (id: number): Promise<User | undefined> => {
   const cacheKey = `user:${id}`;
@@ -150,18 +154,21 @@ export const findUser = async (id: number): Promise<User | undefined> => {
     console.log("⚠ Still missing after retry");
   }
 
-  // 3. Database
-  console.log("📀 Reading Database");
+  const userData = await singleFlight.execute(cacheKey, async () => {
+    console.log("📀 Fetching from DB");
 
-  const user = await getUserFromDB(id);
+    const user = await getUserFromDB(id);
 
-  if (user) {
-    console.log("💾 Writing to cache");
+    if (user) {
+      console.log("💾 Saving into Redis");
 
-    await cache.set(cacheKey, user);
-  }
+      await cacheManager.writeThrough(cacheKey, user);
+    }
 
-  return user;
+    return user;
+  });
+
+  return userData;
 };
 
 export const updateUserData = async (
@@ -177,8 +184,12 @@ export const updateUserData = async (
 
   try {
     const userData = await updateUser(id, user);
-    const key = id.toString();
-    await cache.delete(key);
+    const cacheKey = `user:${id}`;
+    if (userData) {
+      await cacheManager.writeThrough(cacheKey, userData);
+    }
+
+    // await cache.delete(cacheKey);
     return userData;
   } finally {
     await redisLock.release(lockKey, token);
