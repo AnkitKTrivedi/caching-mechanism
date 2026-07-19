@@ -1,11 +1,16 @@
-import { ICache } from "./ICache";
+export interface IAsyncCache<T> {
+  get(key: string): Promise<T | undefined>;
+  set(key: string, value: T): Promise<void>;
+  delete(key: string): Promise<void>;
+  clear(): Promise<void>;
+}
 
 interface CacheItem<T> {
   value: T;
   expiresAt: number;
 }
 
-export class TTLCache<T> implements ICache<T> {
+export class TTLCache<T> implements IAsyncCache<T> {
   private cache = new Map<string, CacheItem<T>>();
   private readonly ttl: number;
   private cleanupTimer: NodeJS.Timeout;
@@ -32,7 +37,7 @@ export class TTLCache<T> implements ICache<T> {
     clearInterval(this.cleanupTimer);
   }
 
-  get(key: string): T | undefined {
+  async get(key: string): Promise<T | undefined> {
     const item = this.cache.get(key);
     //key does not exist
     if (!item) {
@@ -48,17 +53,17 @@ export class TTLCache<T> implements ICache<T> {
     return item.value;
   }
 
-  set(key: string, value: T): void {
+  async set(key: string, value: T): Promise<void> {
     this.cache.set(key, {
       value,
       expiresAt: Date.now() + this.ttl,
     });
   }
 
-  delete(key: string): void {
+  async delete(key: string): Promise<void> {
     this.cache.delete(key);
   }
-  clear(): void {
+  async clear(): Promise<void> {
     this.cache.clear();
   }
 }

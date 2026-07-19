@@ -117,7 +117,10 @@ import { sleep } from "../utils/sleep";
 const cache = new RedisCache<User>();
 const redisLock = new RedisLock(redisClient);
 const singleFlight = new SingleFlight<User | undefined>();
-const cacheManager = new CacheManager(cache);
+const l1Cache = new TTLCache<User>(5000);
+const l2Cache = new RedisCache<User>();
+
+const cacheManager = new CacheManager(l1Cache, l2Cache);
 
 export const findUser = async (id: number): Promise<User | undefined> => {
   const cacheKey = `user:${id}`;
@@ -126,7 +129,7 @@ export const findUser = async (id: number): Promise<User | undefined> => {
   console.log(`GET ${cacheKey}`);
 
   // 1. Check cache
-  const cachedUser = await cache.get(cacheKey);
+  const cachedUser = await cacheManager.get(cacheKey);
 
   if (cachedUser) {
     console.log("✅ Cache Hit");
@@ -144,7 +147,7 @@ export const findUser = async (id: number): Promise<User | undefined> => {
 
     console.log("🔁 Retrying cache");
 
-    const retry = await cache.get(cacheKey);
+    const retry = await cacheManager.get(cacheKey);
 
     if (retry) {
       console.log("✅ Cache Hit after retry");
@@ -162,7 +165,7 @@ export const findUser = async (id: number): Promise<User | undefined> => {
     if (user) {
       console.log("💾 Saving into Redis");
 
-      await cacheManager.writeThrough(cacheKey, user);
+      await cacheManager.set(cacheKey, user);
     }
 
     return user;
@@ -186,7 +189,7 @@ export const updateUserData = async (
     const userData = await updateUser(id, user);
     const cacheKey = `user:${id}`;
     if (userData) {
-      await cacheManager.writeThrough(cacheKey, userData);
+      await cacheManager.set(cacheKey, userData);
     }
 
     // await cache.delete(cacheKey);
