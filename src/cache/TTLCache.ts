@@ -63,7 +63,18 @@ export class TTLCache<T> implements IAsyncCache<T> {
   async delete(key: string): Promise<void> {
     this.cache.delete(key);
   }
+
   async clear(): Promise<void> {
     this.cache.clear();
+  }
+
+  public getRemainingTTL(key: string): number {
+    const item = this.cache.get(key);
+
+    if (!item) {
+      return -1;
+    }
+
+    return item.expiresAt - Date.now();
   }
 }

@@ -160,6 +160,9 @@ export const findUser = async (id: number): Promise<User | undefined> => {
   const userData = await singleFlight.execute(cacheKey, async () => {
     console.log("📀 Fetching from DB");
 
+    // Register loader once
+    cacheManager.registerLoader(cacheKey, () => getUserFromDB(id));
+
     const user = await getUserFromDB(id);
 
     if (user) {
