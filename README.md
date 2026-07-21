@@ -1,507 +1,109 @@
-# Caching Strategies Implementation in TypeScript
+# 🚀 Distributed Caching Framework (Node.js + TypeScript + Redis)
 
-A hands-on implementation of different caching strategies using **Node.js + TypeScript**.
+A production-inspired caching framework built from scratch to understand how modern distributed systems implement caching, consistency, concurrency control, and performance optimization.
 
-# Tech Stack
+## Tech Stack
 
-* Node.js
-* TypeScript
-* Express.js
-* Redis
-* Docker
-
----
-
-# Goals
-
-This repo covers:
-
-* In-memory caching
-* TTL (Time To Live) based expiration
-* Active expiration cleanup
-* LRU (Least Recently Used) eviction
-* Hybrid TTL + LRU cache
-* Redis-based distributed caching
+- Node.js
+- TypeScript
+- Express.js
+- Redis
+- Docker
 
 ---
 
-# Cache Architecture
+# Implemented Topics
 
-The project follows an abstraction-based design.
+## 1. Generic Cache Abstraction
 
-```
-                 ICache<T>
-                    |
-        ----------------------------
-        |            |             |
- MemoryCache     TTLCache      RedisCache
-                     |
-                  LRU Cache
-                     |
-              TTL + LRU Cache
-```
+- Generic `ICache<T>` interface
+- Reusable cache implementations
 
-The application code depends on the cache interface instead of a specific implementation.
+## 2. TTL Cache
 
-This allows switching between:
+- Generic TTL Cache
+- Configurable TTL
+- Lazy Expiration
+- Active Expiration (Background Cleanup)
 
-```
-Memory Cache
-      |
-      |
-      v
-Redis Cache
-```
+## 3. LRU Cache
 
-without changing business logic.
+- Doubly Linked List
+- HashMap + Linked List
+- O(1) Get
+- O(1) Put
+- O(1) Delete
 
----
+## 4. LRU + TTL Cache
 
-# Cache Interface
+- LRU Eviction
+- TTL Expiration
+- Background Cleanup
 
-All cache implementations follow:
+## 5. Redis Cache
 
-```ts
-export interface ICache<T> {
+- Redis Configuration
+- Generic Redis Cache
+- Docker Integration
+- JSON Serialization
 
-    get(key: string): Promise<T | undefined>;
+## 6. Multi-Level Cache
 
-    set(
-        key: string,
-        value: T,
-        ttl?: number
-    ): Promise<void>;
+- L1 Memory Cache
+- L2 Redis Cache
+- Cache Manager
 
-    delete(key: string): Promise<void>;
+## 7. Cache Aside Pattern
 
-    clear(): Promise<void>;
-}
-```
+## 8. Write Through Caching
 
----
+## 9. Cache Invalidation
 
-# Implemented Caching Strategies
+## 10. Redis Distributed Lock
 
-## 1. In-Memory Cache
+- Lock Acquire
+- Lock Release
+- Lock Ownership
 
-Basic cache implementation using JavaScript Map.
+## 11. Cache Stampede Prevention
 
-Data structure:
+## 12. SingleFlight Pattern
 
-```
-Map<string, T>
-```
+## 13. Refresh Ahead Caching
 
-Operations:
+- Background Refresh Worker
+- Loader Registry
+- Automatic Cache Refresh
 
-| Operation | Complexity |
-| --------- | ---------- |
-| get       | O(1)       |
-| set       | O(1)       |
-| delete    | O(1)       |
+## 14. Redis Pub/Sub
 
-Example:
-
-```ts
-cache.set(
-    "user:1",
-    {
-        id:1,
-        name:"Ankit"
-    }
-);
-```
+- Publisher
+- Subscriber
+- Cross-Instance Cache Invalidation
 
 ---
 
-# 2. TTL Cache
+# Cache Design Patterns
 
-TTL means:
-
-> A cached item has a lifetime after which it becomes invalid.
-
-Example:
-
-```
-TTL = 5000ms
-
-
-set()
-
-        |
-        |
-        v
-
-expiresAt = currentTime + 5000
-
-
-after 5 seconds
-
-        |
-        |
-        v
-
-remove item
-```
-
-Features:
-
-* Lazy expiration
-* Active expiration cleanup
-* Configurable TTL
-
-Example:
-
-```ts
-const cache = new TTLCache<User>(
-    5000
-);
-```
+- Cache Aside
+- Write Through
+- Multi-Level Cache
+- Refresh Ahead
+- Publish / Subscribe
+- SingleFlight
+- Dependency Injection
+- Repository Pattern
 
 ---
 
-# Lazy Expiration
-
-When requesting data:
-
-```
-get(key)
-
-   |
-   |
-Check expiry
-
-   |
-   |
-Expired?
-
-   |
-   +---- Yes
-   |
-Delete
-```
-
-Expired entries are removed only when accessed.
-
----
-
-# Active Expiration
-
-A background cleanup process removes expired keys.
-
-Example:
-
-```
-Every 5 seconds
-
-       |
-       v
-
-Scan cache
-
-       |
-       v
-
-Remove expired entries
-```
-
-Implemented using:
-
-```ts
-setInterval()
-```
-
----
-
-# 3. LRU Cache
-
-LRU means:
-
-> Remove the item that has not been used for the longest time.
-
-Example:
-
-Capacity:
-
-```
-3 items
-```
-
-Cache:
-
-```
-A B C
-```
-
-Access:
-
-```
-get(A)
-```
-
-Order becomes:
-
-```
-B C A
-```
-
-Insert:
-
-```
-D
-```
-
-Remove:
-
-```
-B
-```
-
-because B is least recently used.
-
----
-
-# LRU Data Structures
-
-LRU uses two data structures.
-
-## HashMap
-
-For O(1) lookup.
-
-```
-key -> Node
-```
-
-## Doubly Linked List
-
-For O(1) reordering.
-
-```
-HEAD
-
-A <-> B <-> C
-
-TAIL
-```
-
-Most recently used:
-
-```
-HEAD side
-```
-
-Least recently used:
-
-```
-TAIL side
-```
-
----
-
-# LRU Complexity
-
-| Operation | Complexity |
-| --------- | ---------- |
-| get       | O(1)       |
-| set       | O(1)       |
-| delete    | O(1)       |
-| eviction  | O(1)       |
-
----
-
-# 4. Hybrid TTL + LRU Cache
-
-Production caches often combine:
-
-## TTL Expiration
-
-Removes stale data.
-
-```
-Time based eviction
-```
-
-## LRU Eviction
-
-Protects memory usage.
-
-```
-Capacity based eviction
-```
-
-Architecture:
-
-```
-              LRUTTLCache
-
-                    |
-        -------------------------
-        |                       |
-      Map              Doubly Linked List
-
-        |
-        |
-    CacheNode
-
-    key
-    value
-    expiresAt
-    prev
-    next
-```
-
----
-
-# Hybrid Cache Flow
-
-## GET
-
-```
-get(key)
-
-    |
-    |
-Find node in Map
-
-    |
-    |
-Expired?
-
-    |
- +--+--+
- |     |
-Yes    No
- |      |
-Remove Move to Front
- |      |
-Return  Return value
-undefined
-```
-
----
-
-## SET
-
-```
-set(key,value)
-
-        |
-        |
-Existing key?
-
-        |
-   +----+----+
-   |         |
- Yes         No
-
-Update     Create Node
-
-Move       Add to Map
-Front      Add to List
-
-
-        |
-        |
-Capacity exceeded?
-
-        |
-        |
-Remove LRU item
-```
-
----
-
-# Redis Cache
-
-Redis is used when:
-
-* Multiple application servers exist
-* Cache needs to be shared
-* Cache should survive application restarts
-
-Architecture:
-
-```
-              Load Balancer
-
-              /        \
-
-          Node 1       Node 2
-
-              \        /
-
-                 Redis
-```
-
-Both servers use the same cache.
-
----
-
-# Redis Setup
-
-Run Redis using Docker:
-
-```bash
-docker run -d \
---name redis \
--p 6379:6379 \
-redis:7
-```
-
-Verify:
-
-```bash
-docker ps
-```
-
----
-
-# Redis Client Installation
-
-```bash
-npm install redis
-```
-
----
-
-# Redis Data Flow
-
-Application object:
-
-```json
-{
-  "id":1,
-  "name":"Ankit"
-}
-```
-
-Stored in Redis:
-
-```
-JSON.stringify()
-
-        |
-
-        v
-
-Redis String
-```
-
-Retrieved:
-
-```
-Redis String
-
-        |
-
-        v
-
-JSON.parse()
-
-        |
-
-        v
-
-Object
-```
+# Distributed System Concepts
+
+- Multi-Level Caching
+- Cache Consistency
+- Cache Coherency
+- Cache Invalidation
+- Distributed Locking
+- Event-Driven Architecture
+- Background Workers
+- Cross-Instance Cache Synchronization
+- Concurrency Control
