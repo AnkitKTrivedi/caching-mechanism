@@ -89,4 +89,10 @@ export class CacheManager<T> {
   ): void {
     this.refreshRegistry.set(key, loader);
   }
+
+  public deleteL1(key: string): void {
+    this.l1Cache.delete(key);
+
+    console.log(`🗑 L1 Cache Invalidated: ${key}`);
+  }
 }

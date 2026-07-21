@@ -9,6 +9,7 @@ import { redisClient } from "../config/redis";
 import { getUserFromDB, updateUser } from "../db/fakeDB";
 import { User } from "../interfaces/user.interface";
 import { RedisLock } from "../locks/RedisLock";
+import { Publisher } from "../redis/publisher";
 import { sleep } from "../utils/sleep";
 
 /** map caching from the local map */
@@ -120,7 +121,9 @@ const singleFlight = new SingleFlight<User | undefined>();
 const l1Cache = new TTLCache<User>(5000);
 const l2Cache = new RedisCache<User>();
 
-const cacheManager = new CacheManager(l1Cache, l2Cache);
+export const cacheManager = new CacheManager(l1Cache, l2Cache);
+
+const publisher = new Publisher();
 
 export const findUser = async (id: number): Promise<User | undefined> => {
   const cacheKey = `user:${id}`;
@@ -169,6 +172,7 @@ export const findUser = async (id: number): Promise<User | undefined> => {
       console.log("💾 Saving into Redis");
 
       await cacheManager.set(cacheKey, user);
+      await publisher.publishInvalidation(cacheKey);
     }
 
     return user;
@@ -193,6 +197,7 @@ export const updateUserData = async (
     const cacheKey = `user:${id}`;
     if (userData) {
       await cacheManager.set(cacheKey, userData);
+      await publisher.publishInvalidation(cacheKey);
     }
 
     // await cache.delete(cacheKey);
